@@ -1,17 +1,10 @@
-ARG BASE_IMAGE=centos:stream9
-FROM ${BASE_IMAGE}
+FROM openeuler/openeuler:24.03-lts-sp3
 
 ENV APACHE_DOCUMENT_ROOT=/var/www/html \
     APP_FORCE_HTTPS=false \
     APP_ENV=development
 
 RUN set -eux; \
-    dnf -y install epel-release || true; \
-    if command -v dnf &> /dev/null && [ -f /etc/centos-release ]; then \
-        dnf -y install https://remirepo.net; \
-        dnf -y module reset php; \
-        dnf -y module enable php:remi-8.2; \
-    fi; \
     dnf -y update && dnf -y install \
         httpd \
         mod_ssl \
