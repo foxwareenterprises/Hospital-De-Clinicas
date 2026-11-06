@@ -18,13 +18,11 @@ RUN set -eux; \
         mariadb \
         openssl \
         cronie \
+        tar \
     && dnf clean all \
     && rm -rf /var/cache/dnf
 
-RUN groupadd -g 33 www-data || true && \
-    useradd -u 33 -g www-data -M -s /sbin/nologin www-data || usermod -g www-data apache
-
-RUN mkdir -p /etc/httpd/conf.d /etc/httpd/ssl
+RUN mkdir -p /etc/httpd/conf.d /etc/httpd/ssl /var/spool/cron
 
 RUN sed -ri "s!/var/www/html!${APACHE_DOCUMENT_ROOT}!g" /etc/httpd/conf/httpd.conf \
     && sed -i 's/AllowOverride None/AllowOverride All/g' /etc/httpd/conf/httpd.conf \
@@ -72,6 +70,14 @@ COPY config/php-custom.ini /etc/php.d/custom.ini
 COPY config/apache-custom.conf /etc/httpd/conf.d/servername.conf
 
 WORKDIR /var/www/html
+
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY backup_task.sh /usr/local/bin/sigsm-backup.sh
+
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/sigsm-backup.sh \
+    && touch /var/spool/cron/root \
+    && echo "0 2 * * * /usr/local/bin/sigsm-backup.sh >> /var/log/sigsm_backups.log 2>&1" >> /var/spool/cron/root
+
 COPY . /var/www/html/sigsm
 
 RUN printf '%s\n' '<?php' 'header("Location: /sigsm/");' 'exit;' '?>' > /var/www/html/index.php \
@@ -85,11 +91,6 @@ RUN printf '%s\n' '<?php' 'header("Location: /sigsm/");' 'exit;' '?>' > /var/www
     && chmod 755 /var/www/html \
     /var/www/html/index.php \
     /var/www/html/sigsm
-
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-COPY backup_task.sh /usr/local/bin/sigsm-backup.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/sigsm-backup.sh \
-    && (crontab -l 2>/dev/null; echo "0 2 * * * /usr/local/bin/sigsm-backup.sh >> /var/log/sigsm_backups.log 2>&1") | crontab -
 
 EXPOSE 80 443
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
